@@ -40,10 +40,12 @@ import { BsBoxFill } from "react-icons/bs";
     return (
       <main className="md:w-50 sm:w-40 w-15  bg-gray-50 border-r border-gray-200 flex flex-col items-center sm:items-start">
             <section className="w-full">
+                <Link href={'/admin'}>
                 <div className="flex w-full items-center p-1 py-2 gap-1 border-b border-gray-200">
                     <RiAdminFill size={20}/>
                 <h1 className="text-lg font-semibold hidden sm:flex">Admin</h1>
                 </div>
+                </Link>
                 <div className="flex flex-col pt-4">
                 {
                 items.map((item,index)=>{

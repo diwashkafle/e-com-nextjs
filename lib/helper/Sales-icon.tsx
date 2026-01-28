@@ -6,9 +6,9 @@ interface SalesIconProps {
 
 const SalesIcon = ({size,color}:SalesIconProps) => {
   return (
-    <h1 className={`text-gray rounded-full font-bold text-xl`}>
+    <p className={`text-gray rounded-full font-bold text-${size}`}>
         रु
-    </h1>
+    </p>
   )
 }
 
