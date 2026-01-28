@@ -1,11 +1,13 @@
-import UnderDevelopment from "@/components/common/under-development"
+'use client'
+import ProductForm from '@/components/admin/products/ProductForm'
+import React from 'react'
 
- export default function page() {
+const page = () => {
   return (
-    <main className=" ">
-        <UnderDevelopment 
-      pageName="Product management section" 
-    />
-    </main>
+    <div>
+      <ProductForm/>
+    </div>
   )
 }
+
+export default page

@@ -1,4 +1,4 @@
-import InfoContainer from '@/components/admin/layout/each-page-info-container'
+import InfoContainer from '@/components/admin/layout/InfoContainer'
 import { ShoppingBag, Users, DollarSign, Package } from 'lucide-react'
 
 const page = () => {
