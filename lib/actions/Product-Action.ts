@@ -4,16 +4,12 @@ import { db } from '@/db/index';
 
 import { 
   products, 
-  storageOptions, 
-  ramOptions, 
+  variantTypes,
+  variantOptions,
   colorVariants,
   productVariants,
-  categories,
-  subcategories,
-  brands
 } from '@/db/schema';
 import { productSchema } from '@/lib/validators/product';
-import { eq } from 'drizzle-orm';
 import { revalidatePath } from 'next/cache';
 
 function generateSlug(name: string): string {
@@ -23,15 +19,31 @@ function generateSlug(name: string): string {
     .replace(/(^-|-$)/g, '');
 }
 
-function generateSKU(productId: number, storage?: string, ram?: string, color?: string): string {
+function generateSKU(productId: number, optionNames: string[], colorName?: string): string {
   const parts = [
     `P${productId}`,
-    storage?.replace(/[^a-z0-9]/gi, ''),
-    ram?.replace(/[^a-z0-9]/gi, ''),
-    color?.replace(/[^a-z0-9]/gi, '').substring(0, 3).toUpperCase(),
+    ...optionNames.map(name => name.replace(/[^a-z0-9]/gi, '').substring(0, 6).toUpperCase()),
+    colorName?.replace(/[^a-z0-9]/gi, '').substring(0, 3).toUpperCase(),
   ].filter(Boolean);
   
   return parts.join('-');
+}
+
+// Generate all combinations of variant options
+function generateCombinations(arrays: any[][]): any[][] {
+  if (arrays.length === 0) return [[]];
+  if (arrays.length === 1) return arrays[0].map(item => [item]);
+  
+  const [first, ...rest] = arrays;
+  const restCombinations = generateCombinations(rest);
+  
+  const result: any[][] = [];
+  for (const item of first) {
+    for (const combo of restCombinations) {
+      result.push([item, ...combo]);
+    }
+  }
+  return result;
 }
 
 export async function createProduct(formData: FormData) {
@@ -71,27 +83,43 @@ export async function createProduct(formData: FormData) {
         publishedAt: validData.status === 'published' ? new Date() : null,
       }).returning();
       
-      // 2. Insert storage options
-      const insertedStorageOptions = await tx.insert(storageOptions).values(
-        validData.storageOptions.map((storage) => ({
-          productId: product.id,
-          value: storage.value,
-          priceAdjustment: storage.priceAdjustment.toString(),
-          stock: storage.stock,
-        }))
-      ).returning();
+      // 2. Insert variant types and their options
+      const allVariantOptions: Array<{
+        id: number;
+        name: string;
+        priceAdjustment: number;
+        stock: number;
+        typeName: string;
+      }> = [];
       
-      // 3. Insert RAM options
-      const insertedRamOptions = await tx.insert(ramOptions).values(
-        validData.ramOptions.map((ram) => ({
+      for (const variantType of validData.variantTypes) {
+        const [insertedType] = await tx.insert(variantTypes).values({
           productId: product.id,
-          value: ram.value,
-          priceAdjustment: ram.priceAdjustment.toString(),
-          stock: ram.stock,
-        }))
-      ).returning();
+          typeName: variantType.typeName,
+        }).returning();
+        
+        const insertedOptions = await tx.insert(variantOptions).values(
+          variantType.options.map((option) => ({
+            variantTypeId: insertedType.id,
+            name: option.name,
+            priceAdjustment: option.priceAdjustment.toString(),
+            stock: option.stock,
+          }))
+        ).returning();
+        
+        // Store options with their type name for combination generation
+        allVariantOptions.push(
+          ...insertedOptions.map(opt => ({
+            id: opt.id,
+            name: opt.name,
+            priceAdjustment: parseFloat(opt.priceAdjustment),
+            stock: opt.stock,
+            typeName: variantType.typeName,
+          }))
+        );
+      }
       
-      // 4. Insert color variants (if any)
+      // 3. Insert color variants (if any)
       let insertedColorVariants: any[] = [];
       if (validData.colorVariants && validData.colorVariants.length > 0) {
         insertedColorVariants = await tx.insert(colorVariants).values(
@@ -105,48 +133,56 @@ export async function createProduct(formData: FormData) {
         ).returning();
       }
       
-      // 5. Generate all variant combinations
+      // 4. Generate all variant combinations
       const variantCombinations = [];
       
-      for (const storage of insertedStorageOptions) {
-        for (const ram of insertedRamOptions) {
-          if (insertedColorVariants.length > 0) {
-            for (const color of insertedColorVariants) {
-              const finalPrice = 
-                parseFloat(validData.basePrice.toString()) +
-                parseFloat(storage.priceAdjustment) +
-                parseFloat(ram.priceAdjustment);
-              
-              variantCombinations.push({
-                productId: product.id,
-                sku: generateSKU(product.id, storage.value, ram.value, color.colorName),
-                storageOptionId: storage.id,
-                ramOptionId: ram.id,
-                colorVariantId: color.id,
-                finalPrice: finalPrice.toString(),
-                stock: Math.min(storage.stock, ram.stock, color.stock),
-              });
-            }
-          } else {
-            const finalPrice = 
-              parseFloat(validData.basePrice.toString()) +
-              parseFloat(storage.priceAdjustment) +
-              parseFloat(ram.priceAdjustment);
-            
+      // Group options by type
+      const optionsByType: Record<string, typeof allVariantOptions> = {};
+      for (const option of allVariantOptions) {
+        if (!optionsByType[option.typeName]) {
+          optionsByType[option.typeName] = [];
+        }
+        optionsByType[option.typeName].push(option);
+      }
+      
+      // Get all option arrays for combination generation
+      const optionArrays = Object.values(optionsByType);
+      const combinations = generateCombinations(optionArrays);
+      
+      for (const combo of combinations) {
+        const optionIds = combo.map(opt => opt.id);
+        const optionNames = combo.map(opt => opt.name);
+        const totalPriceAdjustment = combo.reduce((sum, opt) => sum + opt.priceAdjustment, 0);
+        const minStock = Math.min(...combo.map(opt => opt.stock));
+        
+        const finalPrice = parseFloat(validData.basePrice.toString()) + totalPriceAdjustment;
+        
+        if (insertedColorVariants.length > 0) {
+          // Create variants with colors
+          for (const color of insertedColorVariants) {
             variantCombinations.push({
               productId: product.id,
-              sku: generateSKU(product.id, storage.value, ram.value),
-              storageOptionId: storage.id,
-              ramOptionId: ram.id,
-              colorVariantId: null,
+              sku: generateSKU(product.id, optionNames, color.colorName),
+              variantOptionIds: optionIds,
+              colorVariantId: color.id,
               finalPrice: finalPrice.toString(),
-              stock: Math.min(storage.stock, ram.stock),
+              stock: Math.min(minStock, color.stock),
             });
           }
+        } else {
+          // Create variants without colors
+          variantCombinations.push({
+            productId: product.id,
+            sku: generateSKU(product.id, optionNames),
+            variantOptionIds: optionIds,
+            colorVariantId: null,
+            finalPrice: finalPrice.toString(),
+            stock: minStock,
+          });
         }
       }
       
-      // 6. Insert all variant combinations
+      // 5. Insert all variant combinations
       if (variantCombinations.length > 0) {
         await tx.insert(productVariants).values(variantCombinations);
       }

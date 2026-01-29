@@ -1,23 +1,28 @@
 import { z } from 'zod';
 
-// Specification schema
-export const specificationSchema = z.object({
+// Specification detail schema (key-value pair)
+export const specificationDetailSchema = z.object({
   key: z.string().min(1, 'Specification key is required'),
   value: z.string().min(1, 'Specification value is required'),
 });
 
-// Storage option schema
-export const storageOptionSchema = z.object({
-  value: z.string().min(1, 'Storage value is required (e.g., 64GB)'),
-  priceAdjustment: z.number().min(0, 'Price adjustment must be positive').default(0),
+// Specification group schema (e.g., "Display", "Camera")
+export const specificationGroupSchema = z.object({
+  groupName: z.string().min(1, 'Group name is required (e.g., Display, Camera)'),
+  details: z.array(specificationDetailSchema).min(1, 'At least one specification detail is required'),
+});
+
+// Flexible variant option schema (can be storage, RAM, size, material, etc.)
+export const variantOptionSchema = z.object({
+  name: z.string().min(1, 'Variant name is required (e.g., 128GB, 8GB RAM, Large)'),
+  priceAdjustment: z.number().default(0), // Can be positive or negative
   stock: z.number().int().min(0, 'Stock must be a positive number').default(0),
 });
 
-// RAM option schema
-export const ramOptionSchema = z.object({
-  value: z.string().min(1, 'RAM value is required (e.g., 4GB)'),
-  priceAdjustment: z.number().min(0, 'Price adjustment must be positive').default(0),
-  stock: z.number().int().min(0, 'Stock must be a positive number').default(0),
+// Variant type schema (e.g., "Storage", "RAM", "Size", "Material")
+export const variantTypeSchema = z.object({
+  typeName: z.string().min(1, 'Variant type is required (e.g., Storage, RAM, Size)'),
+  options: z.array(variantOptionSchema).min(1, 'At least one option is required'),
 });
 
 // Color variant schema
@@ -41,9 +46,9 @@ export const productSchema = z.object({
   
   categoryId: z.number().int().positive('Please select a category'),
   
-  subcategoryId: z.number().int().positive('Please select a subcategory').optional(),
+  subcategoryId: z.number().int().positive().optional().nullable(),
   
-  brandId: z.number().int().positive('Please select a brand').optional(),
+  brandId: z.number().int().positive().optional().nullable(),
   
   // Pricing
   basePrice: z.number()
@@ -56,29 +61,26 @@ export const productSchema = z.object({
     .optional()
     .nullable(),
   
-  // Variants
-  storageOptions: z.array(storageOptionSchema)
-    .min(1, 'At least one storage option is required'),
+  // Flexible Variants (e.g., Storage, RAM, Size, Material, etc.)
+  variantTypes: z.array(variantTypeSchema)
+    .min(1, 'At least one variant type is required (e.g., Storage, Size, or Model)'),
   
-  ramOptions: z.array(ramOptionSchema)
-    .min(1, 'At least one RAM option is required'),
-  
+  // Color Variants (optional, affects images only)
   colorVariants: z.array(colorVariantSchema)
     .optional()
     .default([]),
   
-  // Specifications
-  specifications: z.array(specificationSchema)
+  // Grouped Specifications (e.g., Display group with Screen Size, Resolution, etc.)
+  specifications: z.array(specificationGroupSchema)
     .optional()
     .default([]),
   
-  // Product Images
+  // Product Images (general product images)
   images: z.array(z.string().url('Invalid image URL'))
     .min(1, 'At least one product image is required'),
   
   // Publishing
-  status: z.enum(['draft', 'published', 'scheduled'],
-  ),
+  status: z.enum(['draft', 'published', 'scheduled']),
   
   scheduledAt: z.string().datetime().optional().nullable(),
 }).refine(
@@ -109,7 +111,8 @@ export const productSchema = z.object({
 
 // Type inference
 export type ProductFormData = z.infer<typeof productSchema>;
-export type StorageOption = z.infer<typeof storageOptionSchema>;
-export type RamOption = z.infer<typeof ramOptionSchema>;
+export type VariantType = z.infer<typeof variantTypeSchema>;
+export type VariantOption = z.infer<typeof variantOptionSchema>;
 export type ColorVariant = z.infer<typeof colorVariantSchema>;
-export type Specification = z.infer<typeof specificationSchema>;
+export type SpecificationGroup = z.infer<typeof specificationGroupSchema>;
+export type SpecificationDetail = z.infer<typeof specificationDetailSchema>;

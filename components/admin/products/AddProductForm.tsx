@@ -7,8 +7,8 @@ import { createProduct } from '@/lib/actions/Product-Action';
 import { getCategories, getSubcategories, getBrands} from '@/lib/queries/product-queries';
 import InfoTooltip from './InfoTooltip';
 import ImageUploader from './Imageuploader';
-import SpecificationBuilder from './SpecificationBuilder';
-import StorageRAMVariants from './StorageRamVariants';
+import GroupedSpecificationBuilder from './GroupSpecificationBuilder';
+import FlexibleVariants from './FlexibleVariants';
 import ColorVariants from './ColorVariants';
 
 interface Category {
@@ -37,12 +37,16 @@ export default function AddProductForm() {
     name: '',
     description: '',
     categoryId: 0,
-    subcategoryId: 0,
-    brandId: 0,
+    subcategoryId: null,
+    brandId: null,
     basePrice: 0,
     crossingPrice: null,
-    storageOptions: [{ value: '', priceAdjustment: 0, stock: 0 }],
-    ramOptions: [{ value: '', priceAdjustment: 0, stock: 0 }],
+    variantTypes: [
+      { 
+        typeName: 'Storage', 
+        options: [{ name: '', priceAdjustment: 0, stock: 0 }] 
+      }
+    ],
     colorVariants: [],
     specifications: [],
     images: [],
@@ -142,7 +146,7 @@ export default function AddProductForm() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-gray-300 border-t-blue-600" />
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-gray-300 border-t-gray-900" />
           <p className="mt-4 text-gray-600">Loading form...</p>
         </div>
       </div>
@@ -150,7 +154,7 @@ export default function AddProductForm() {
   }
 
   return (
-    <div className="min-h-screen bg-linear-to-br from-slate-50 to-blue-50 py-12">
+    <div className="min-h-screen bg-linear-to-br from-gray-50 to-gray-100 py-12">
       <div className="max-w-5xl mx-auto px-6">
         {/* Header */}
         <div className="mb-8">
@@ -164,7 +168,7 @@ export default function AddProductForm() {
           {/* Section 1: Basic Information */}
           <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
             <div className="flex items-center gap-2 mb-6 pb-4 border-b border-gray-200">
-              <div className="w-8 h-8 bg-blue-600 text-white rounded-lg flex items-center justify-center font-bold">
+              <div className="w-8 h-8 bg-gray-900 text-white rounded-lg flex items-center justify-center font-bold">
                 1
               </div>
               <h2 className="text-2xl font-bold text-gray-900">Basic Information</h2>
@@ -181,8 +185,8 @@ export default function AddProductForm() {
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g., iPhone 15 Pro Max"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                  placeholder="e.g., iPhone 15 Pro Max, Galaxy Watch 6"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all"
                   data-error={!!errors.name}
                 />
                 {errors.name && <p className="mt-1 text-sm text-red-600">{errors.name}</p>}
@@ -199,7 +203,7 @@ export default function AddProductForm() {
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                   placeholder="Describe your product in detail..."
                   rows={6}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all resize-y"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all resize-y"
                   data-error={!!errors.description}
                 />
                 {errors.description && (
@@ -220,10 +224,10 @@ export default function AddProductForm() {
                       setFormData({
                         ...formData,
                         categoryId: Number(e.target.value),
-                        subcategoryId: 0,
+                        subcategoryId: null,
                       })
                     }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all"
                     data-error={!!errors.categoryId}
                   >
                     <option value="0">Select category</option>
@@ -244,12 +248,12 @@ export default function AddProductForm() {
                     <InfoTooltip content="Optional: Select a subcategory for better organization" />
                   </label>
                   <select
-                    value={formData.subcategoryId}
+                    value={formData.subcategoryId || 0}
                     onChange={(e) =>
-                      setFormData({ ...formData, subcategoryId: Number(e.target.value) })
+                      setFormData({ ...formData, subcategoryId: Number(e.target.value) || null })
                     }
                     disabled={!formData.categoryId}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all disabled:bg-gray-100 disabled:cursor-not-allowed"
                   >
                     <option value="0">Select subcategory</option>
                     {subcategories.map((subcat) => (
@@ -266,11 +270,11 @@ export default function AddProductForm() {
                     <InfoTooltip content="Optional: Select the product brand" />
                   </label>
                   <select
-                    value={formData.brandId}
+                    value={formData.brandId || 0}
                     onChange={(e) =>
-                      setFormData({ ...formData, brandId: Number(e.target.value) })
+                      setFormData({ ...formData, brandId: Number(e.target.value) || null })
                     }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all"
                   >
                     <option value="0">Select brand</option>
                     {brands.map((brand) => (
@@ -287,7 +291,7 @@ export default function AddProductForm() {
           {/* Section 2: Pricing */}
           <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
             <div className="flex items-center gap-2 mb-6 pb-4 border-b border-gray-200">
-              <div className="w-8 h-8 bg-blue-600 text-white rounded-lg flex items-center justify-center font-bold">
+              <div className="w-8 h-8 bg-gray-900 text-white rounded-lg flex items-center justify-center font-bold">
                 2
               </div>
               <h2 className="text-2xl font-bold text-gray-900">Pricing</h2>
@@ -312,7 +316,7 @@ export default function AddProductForm() {
                     placeholder="999.00"
                     step="0.01"
                     min="0"
-                    className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all"
                     data-error={!!errors.basePrice}
                   />
                 </div>
@@ -342,7 +346,7 @@ export default function AddProductForm() {
                     placeholder="1299.00"
                     step="0.01"
                     min="0"
-                    className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
+                    className="w-full pl-8 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent transition-all"
                     data-error={!!errors.crossingPrice}
                   />
                 </div>
@@ -353,50 +357,43 @@ export default function AddProductForm() {
             </div>
           </section>
 
-          {/* Section 3: Variants (Storage & RAM) */}
+          {/* Section 3: Flexible Variants */}
           <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
             <div className="flex items-center gap-2 mb-6 pb-4 border-b border-gray-200">
-              <div className="w-8 h-8 bg-blue-600 text-white rounded-lg flex items-center justify-center font-bold">
+              <div className="w-8 h-8 bg-gray-900 text-white rounded-lg flex items-center justify-center font-bold">
                 3
               </div>
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                  Storage & RAM Variants *
-                  <InfoTooltip content="Add different storage and RAM configurations. Each combination will have its own stock and optional price adjustment." />
+                  Product Variants *
+                  <InfoTooltip content="Add variant types like Storage, RAM, Size, Material, etc. All combinations will be generated automatically." />
                 </h2>
                 <p className="text-sm text-gray-600 mt-1">
-                  Variants will be auto-generated from all combinations
+                  Define what makes your product different (affects price)
                 </p>
               </div>
             </div>
 
-            <StorageRAMVariants
-              storageOptions={formData.storageOptions}
-              ramOptions={formData.ramOptions}
-              onStorageChange={(options) =>
-                setFormData({ ...formData, storageOptions: options })
-              }
-              onRamChange={(options) =>
-                setFormData({ ...formData, ramOptions: options })
-              }
-              storageError={errors.storageOptions}
-              ramError={errors.ramOptions}
+            <FlexibleVariants
+              variantTypes={formData.variantTypes}
+              onChange={(types) => setFormData({ ...formData, variantTypes: types })}
+              error={errors.variantTypes}
             />
           </section>
 
           {/* Section 4: Color Variants */}
           <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
             <div className="flex items-center gap-2 mb-6 pb-4 border-b border-gray-200">
-              <div className="w-8 h-8 bg-blue-600 text-white rounded-lg flex items-center justify-center font-bold">
+              <div className="w-8 h-8 bg-gray-900 text-white rounded-lg flex items-center justify-center font-bold">
                 4
               </div>
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                   Color Variants (Optional)
-                  <InfoTooltip content="Add color options for your product. Each color can have its own images." />
+                  <InfoTooltip content="Add color options for your product. Each color can have its own images and stock." />
                 </h2>
                 <p className="text-sm text-gray-600 mt-1">
-                  Colors will multiply the storage/RAM combinations
+                  Colors multiply all variant combinations (doesn't affect price)
                 </p>
               </div>
             </div>
@@ -413,16 +410,16 @@ export default function AddProductForm() {
           {/* Section 5: Specifications */}
           <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
             <div className="flex items-center gap-2 mb-6 pb-4 border-b border-gray-200">
-              <div className="w-8 h-8 bg-blue-600 text-white rounded-lg flex items-center justify-center font-bold">
+              <div className="w-8 h-8 bg-gray-900 text-white rounded-lg flex items-center justify-center font-bold">
                 5
               </div>
               <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                 Technical Specifications
-                <InfoTooltip content="Add technical details and features of the product" />
+                <InfoTooltip content="Add technical details and features grouped by category (Display, Camera, etc.)" />
               </h2>
             </div>
 
-            <SpecificationBuilder
+            <GroupedSpecificationBuilder
               specifications={formData.specifications}
               onChange={(specs) =>
                 setFormData({ ...formData, specifications: specs })
@@ -434,13 +431,13 @@ export default function AddProductForm() {
           {/* Section 6: Product Images */}
           <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
             <div className="flex items-center gap-2 mb-6 pb-4 border-b border-gray-200">
-              <div className="w-8 h-8 bg-blue-600 text-white rounded-lg flex items-center justify-center font-bold">
+              <div className="w-8 h-8 bg-gray-900 text-white rounded-lg flex items-center justify-center font-bold">
                 6
               </div>
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
                   Product Images *
-                  <InfoTooltip content="Upload general product images. Color-specific images are added in the color variants section above." />
+                  <InfoTooltip content="Upload general product images. Color-specific images are added in the color variants section." />
                 </h2>
                 <p className="text-sm text-gray-600 mt-1">
                   First image will be the featured image
@@ -465,7 +462,7 @@ export default function AddProductForm() {
           {/* Section 7: Publishing Options */}
           <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-8">
             <div className="flex items-center gap-2 mb-6 pb-4 border-b border-gray-200">
-              <div className="w-8 h-8 bg-blue-600 text-white rounded-lg flex items-center justify-center font-bold">
+              <div className="w-8 h-8 bg-gray-900 text-white rounded-lg flex items-center justify-center font-bold">
                 7
               </div>
               <h2 className="text-2xl font-bold text-gray-900">Publishing Options</h2>
@@ -477,7 +474,7 @@ export default function AddProductForm() {
                   Status *
                 </label>
                 <div className="space-y-3">
-                  <label className="flex items-start p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors has-checked:border-blue-500 has-checked:bg-blue-50">
+                  <label className="flex items-start p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors has-[:checked]:border-gray-900 has-[:checked]:bg-gray-50">
                     <input
                       type="radio"
                       name="status"
@@ -486,7 +483,7 @@ export default function AddProductForm() {
                       onChange={(e) =>
                         setFormData({ ...formData, status: e.target.value as any })
                       }
-                      className="mt-1 mr-3 w-4 h-4 text-blue-600"
+                      className="mt-1 mr-3 w-4 h-4 text-gray-900"
                     />
                     <div>
                       <div className="font-semibold text-gray-900">Save as Draft</div>
@@ -496,7 +493,7 @@ export default function AddProductForm() {
                     </div>
                   </label>
 
-                  <label className="flex items-start p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors has-checked:border-blue-500 has-checked:bg-blue-50">
+                  <label className="flex items-start p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors has-[:checked]:border-gray-900 has-[:checked]:bg-gray-50">
                     <input
                       type="radio"
                       name="status"
@@ -505,7 +502,7 @@ export default function AddProductForm() {
                       onChange={(e) =>
                         setFormData({ ...formData, status: e.target.value as any })
                       }
-                      className="mt-1 mr-3 w-4 h-4 text-blue-600"
+                      className="mt-1 mr-3 w-4 h-4 text-gray-900"
                     />
                     <div>
                       <div className="font-semibold text-gray-900">Publish Now</div>
@@ -515,7 +512,7 @@ export default function AddProductForm() {
                     </div>
                   </label>
 
-                  <label className="flex items-start p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors has-checked:border-blue-500 has-checked:bg-blue-50">
+                  <label className="flex items-start p-4 border-2 border-gray-200 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors has-[:checked]:border-gray-900 has-[:checked]:bg-gray-50">
                     <input
                       type="radio"
                       name="status"
@@ -524,7 +521,7 @@ export default function AddProductForm() {
                       onChange={(e) =>
                         setFormData({ ...formData, status: e.target.value as any })
                       }
-                      className="mt-1 mr-3 w-4 h-4 text-blue-600"
+                      className="mt-1 mr-3 w-4 h-4 text-gray-900"
                     />
                     <div className="flex-1">
                       <div className="font-semibold text-gray-900">Schedule for Later</div>
@@ -538,7 +535,7 @@ export default function AddProductForm() {
                           onChange={(e) =>
                             setFormData({ ...formData, scheduledAt: e.target.value })
                           }
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-gray-900 focus:border-transparent"
                           data-error={!!errors.scheduledAt}
                         />
                       )}
@@ -567,7 +564,7 @@ export default function AddProductForm() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-8 py-3 bg-gray-900 hover:bg-gray-800 text-white rounded-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {isSubmitting ? (
                 <>

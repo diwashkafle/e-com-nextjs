@@ -42,8 +42,12 @@ export const products = pgTable('products', {
   // Product Images (general product images)
   images: jsonb('images').$type<string[]>().default([]),
   
-  // Specifications as key-value pairs
-  specifications: jsonb('specifications').$type<{ key: string; value: string }[]>().default([]),
+  // Grouped Specifications
+  // Structure: [{ groupName: "Display", details: [{ key: "Screen Size", value: "6.1 inches" }] }]
+  specifications: jsonb('specifications').$type<{
+    groupName: string;
+    details: { key: string; value: string }[];
+  }[]>().default([]),
   
   // Publishing options
   status: varchar('status', { length: 20 }).notNull().default('draft'), // draft, published, scheduled
@@ -54,21 +58,19 @@ export const products = pgTable('products', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
-// Storage Options Table
-export const storageOptions = pgTable('storage_options', {
+// Variant Types Table (e.g., "Storage", "RAM", "Size", "Material")
+export const variantTypes = pgTable('variant_types', {
   id: serial('id').primaryKey(),
   productId: integer('product_id').references(() => products.id, { onDelete: 'cascade' }).notNull(),
-  value: varchar('value', { length: 50 }).notNull(), // e.g., "64GB", "128GB"
-  priceAdjustment: decimal('price_adjustment', { precision: 10, scale: 2 }).default('0').notNull(),
-  stock: integer('stock').notNull().default(0),
+  typeName: varchar('type_name', { length: 100 }).notNull(), // e.g., "Storage", "RAM", "Size"
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
-// RAM Options Table
-export const ramOptions = pgTable('ram_options', {
+// Variant Options Table (e.g., "128GB", "256GB" for Storage type)
+export const variantOptions = pgTable('variant_options', {
   id: serial('id').primaryKey(),
-  productId: integer('product_id').references(() => products.id, { onDelete: 'cascade' }).notNull(),
-  value: varchar('value', { length: 50 }).notNull(), // e.g., "4GB", "8GB"
+  variantTypeId: integer('variant_type_id').references(() => variantTypes.id, { onDelete: 'cascade' }).notNull(),
+  name: varchar('name', { length: 100 }).notNull(), // e.g., "128GB", "Large", "Aluminum"
   priceAdjustment: decimal('price_adjustment', { precision: 10, scale: 2 }).default('0').notNull(),
   stock: integer('stock').notNull().default(0),
   createdAt: timestamp('created_at').defaultNow().notNull(),
@@ -85,15 +87,17 @@ export const colorVariants = pgTable('color_variants', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
-// Product Variants (Combinations of Storage + RAM + Color)
+// Product Variants (All combinations)
 // This table stores the actual SKU combinations
 export const productVariants = pgTable('product_variants', {
   id: serial('id').primaryKey(),
   productId: integer('product_id').references(() => products.id, { onDelete: 'cascade' }).notNull(),
   sku: varchar('sku', { length: 100 }).notNull().unique(),
   
-  storageOptionId: integer('storage_option_id').references(() => storageOptions.id),
-  ramOptionId: integer('ram_option_id').references(() => ramOptions.id),
+  // JSON array of variant option IDs that make up this variant
+  // e.g., [storageOptionId, ramOptionId] or [sizeOptionId, materialOptionId]
+  variantOptionIds: jsonb('variant_option_ids').$type<number[]>().notNull(),
+  
   colorVariantId: integer('color_variant_id').references(() => colorVariants.id),
   
   // Final calculated price for this variant
@@ -135,26 +139,24 @@ export const productsRelations = relations(products, ({ one, many }) => ({
     fields: [products.brandId],
     references: [brands.id],
   }),
-  storageOptions: many(storageOptions),
-  ramOptions: many(ramOptions),
+  variantTypes: many(variantTypes),
   colorVariants: many(colorVariants),
   variants: many(productVariants),
 }));
 
-export const storageOptionsRelations = relations(storageOptions, ({ one, many }) => ({
+export const variantTypesRelations = relations(variantTypes, ({ one, many }) => ({
   product: one(products, {
-    fields: [storageOptions.productId],
+    fields: [variantTypes.productId],
     references: [products.id],
   }),
-  variants: many(productVariants),
+  options: many(variantOptions),
 }));
 
-export const ramOptionsRelations = relations(ramOptions, ({ one, many }) => ({
-  product: one(products, {
-    fields: [ramOptions.productId],
-    references: [products.id],
+export const variantOptionsRelations = relations(variantOptions, ({ one }) => ({
+  variantType: one(variantTypes, {
+    fields: [variantOptions.variantTypeId],
+    references: [variantTypes.id],
   }),
-  variants: many(productVariants),
 }));
 
 export const colorVariantsRelations = relations(colorVariants, ({ one, many }) => ({
@@ -169,14 +171,6 @@ export const productVariantsRelations = relations(productVariants, ({ one }) => 
   product: one(products, {
     fields: [productVariants.productId],
     references: [products.id],
-  }),
-  storageOption: one(storageOptions, {
-    fields: [productVariants.storageOptionId],
-    references: [storageOptions.id],
-  }),
-  ramOption: one(ramOptions, {
-    fields: [productVariants.ramOptionId],
-    references: [ramOptions.id],
   }),
   colorVariant: one(colorVariants, {
     fields: [productVariants.colorVariantId],
